@@ -1,0 +1,35 @@
+import dotenv from "dotenv";
+
+dotenv.config();
+
+const requiredEnvVars = [
+  "PORT",
+  "MONGODB_URI",
+  "ACCESS_TOKEN_SECRET",
+  "REFRESH_TOKEN_SECRET",
+];
+
+// Validate required variables
+requiredEnvVars.forEach((key) => {
+  if (!process.env[key]) {
+    throw new Error(`Missing required environment variable: ${key}`);
+  }
+});
+
+export const environmentVariables = {
+  PORT: process.env.PORT || 5000,
+  MONGODB_URI: process.env.MONGODB_URI,
+  CORS_ORIGIN: process.env.CORS_ORIGIN,
+
+  ACCESS_TOKEN_SECRET: process.env.ACCESS_TOKEN_SECRET,
+  ACCESS_TOKEN_EXPIRES_IN: process.env.ACCESS_TOKEN_EXPIRES_IN,
+
+  REFRESH_TOKEN_SECRET: process.env.REFRESH_TOKEN_SECRET,
+  REFRESH_TOKEN_EXPIRES_IN: process.env.REFRESH_TOKEN_EXPIRES_IN,
+
+  CLOUDINARY: {
+    CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
+    API_KEY: process.env.CLOUDINARY_API_KEY,
+    API_SECRET: process.env.CLOUDINARY_API_SECRET,
+  },
+};
