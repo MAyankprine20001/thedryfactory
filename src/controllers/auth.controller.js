@@ -3,7 +3,10 @@ import jwt from "jsonwebtoken";
 import { User } from "../models/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { sendVerificationEmail, sendPasswordResetEmail } from "../utils/sendEmail.js";
+import {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+} from "../utils/sendEmail.js";
 import { environmentVariables } from "../config/config.env.js";
 
 // ─── Helper: generate both tokens & save refresh to DB ───────────────────────
@@ -19,10 +22,16 @@ const generateTokens = async (userId) => {
 };
 
 // ─── Helper: cookie options ───────────────────────────────────────────────────
+// const cookieOptions = {
+//   httpOnly: true,
+//   secure: process.env.NODE_ENV === "production",
+//   sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+// };
 const cookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+  secure: true,
+  sameSite: "none", // works for subdomain too
+  domain: ".thedryfactory.com", // ✅ leading dot = works for all subdomains
 };
 
 // ─── REGISTER ─────────────────────────────────────────────────────────────────
@@ -51,7 +60,7 @@ export const register = asyncHandler(async (req, res) => {
 
   // Send email (non-blocking)
   sendVerificationEmail({ to: email, name: fullName, verifyUrl }).catch((err) =>
-    console.error("Verification email failed:", err)
+    console.error("Verification email failed:", err),
   );
 
   return res
@@ -176,7 +185,7 @@ export const refreshAccessToken = asyncHandler(async (req, res) => {
 
   const decoded = jwt.verify(
     incomingRefreshToken,
-    environmentVariables.REFRESH_TOKEN_SECRET
+    environmentVariables.REFRESH_TOKEN_SECRET,
   );
 
   const user = await User.findById(decoded.id).select("+refreshToken");
@@ -185,7 +194,9 @@ export const refreshAccessToken = asyncHandler(async (req, res) => {
     throw new ApiError(401, "Invalid or expired refresh token");
   }
 
-  const { accessToken, refreshToken: newRefreshToken } = await generateTokens(user._id);
+  const { accessToken, refreshToken: newRefreshToken } = await generateTokens(
+    user._id,
+  );
 
   return res
     .status(200)
@@ -222,7 +233,9 @@ export const forgotPassword = asyncHandler(async (req, res) => {
 
   const resetUrl = `${environmentVariables.CLIENT_URL}/reset-password?token=${rawToken}`;
 
-  sendPasswordResetEmail({ to: email, name: user.fullName, resetUrl }).catch(console.error);
+  sendPasswordResetEmail({ to: email, name: user.fullName, resetUrl }).catch(
+    console.error,
+  );
 
   return res.status(200).json({
     success: true,
@@ -270,14 +283,11 @@ export const logout = asyncHandler(async (req, res) => {
     $unset: { refreshToken: 1 },
   });
 
-  return res
-    .status(200)
-    .clearCookie("refreshToken", cookieOptions)
-    .json({
-      success: true,
-      message: "Logged out successfully",
-      data: {},
-    });
+  return res.status(200).clearCookie("refreshToken", cookieOptions).json({
+    success: true,
+    message: "Logged out successfully",
+    data: {},
+  });
 });
 
 // ─── SEED ADMIN (Temporary Route) ─────────────────────────────────────────────
@@ -310,14 +320,13 @@ export const seedAdmin = asyncHandler(async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Admin user seeded successfully",
-      data: { email: adminEmail, role: "admin" }
+      data: { email: adminEmail, role: "admin" },
     });
   } catch (error) {
     console.error("SEED ADMIN ERROR:", error);
     return res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 });
-

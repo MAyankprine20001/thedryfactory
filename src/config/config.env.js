@@ -29,7 +29,6 @@ export const environmentVariables = {
   RESEND_API_KEY: process.env.RESEND_API_KEY,
   RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL,
   CLIENT_URL: process.env.CLIENT_URL,
-  BACKEND_URL: process.env.BACKEND_URL,
 
   CLOUDINARY: {
     CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
