@@ -6,30 +6,30 @@ import authRouter from "./routes/auth.routes.js";
 import productRouter from "./routes/product.routes.js";
 import uploadRouter from "./routes/upload.routes.js";
 
+const app = express();
+
 const allowedOrigins = [
   "https://thedryfactory.com",
   "https://www.thedryfactory.com",
-  "http://localhost:5173", // for local dev
-  "http://localhost:3000", // for local dev
+  "http://localhost:5173",
+  "http://localhost:3000",
 ];
 
-const app = express();
 app.use(
   cors({
     origin: function (origin, callback) {
-      // allow requests with no origin (Postman, mobile apps)
+      // allow Postman / mobile / server-to-server (no origin)
       if (!origin) return callback(null, true);
 
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(new Error(`CORS blocked: ${origin}`));
+        callback(new Error(`CORS blocked for origin: ${origin}`));
       }
     },
     credentials: true,
   }),
 );
-
 app.use(express.json({ limit: "16kb" }));
 app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(express.static("public"));
