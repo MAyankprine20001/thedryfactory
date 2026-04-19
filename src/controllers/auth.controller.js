@@ -168,7 +168,7 @@ export const getMe = asyncHandler(async (req, res) => {
 // ─── REFRESH ACCESS TOKEN ─────────────────────────────────────────────────────
 export const refreshAccessToken = asyncHandler(async (req, res) => {
   const incomingRefreshToken =
-    req.cookies?.refreshToken || req.body.refreshToken;
+    req.cookies?.refreshToken || req.body?.refreshToken;
 
   if (!incomingRefreshToken) {
     throw new ApiError(401, "No refresh token provided");
