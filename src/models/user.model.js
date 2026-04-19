@@ -1,3 +1,4 @@
+import crypto from "crypto"; // ← ADD THIS
 import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -21,7 +22,7 @@ const userSchema = new Schema(
       type: String,
       required: [true, "Please provide your password"],
       minlength: 6,
-      select: false, // never returned in queries by default
+      select: false,
     },
     role: {
       type: String,
@@ -42,7 +43,7 @@ const userSchema = new Schema(
     },
     refreshToken: {
       type: String,
-      select: false, // never returned in queries by default
+      select: false,
     },
     passwordResetToken: {
       type: String,
@@ -57,10 +58,8 @@ const userSchema = new Schema(
 );
 
 // Hash password before saving
-
 userSchema.pre("save", async function () {
   if (!this.isModified("password")) return;
-
   this.password = await bcrypt.hash(this.password, 10);
 });
 
@@ -69,7 +68,7 @@ userSchema.methods.isPasswordCorrect = async function (password) {
   return bcrypt.compare(password, this.password);
 };
 
-// Generate short-lived Access Token (1 day)
+// Generate short-lived Access Token
 userSchema.methods.generateAccessToken = function () {
   return jwt.sign(
     { id: this._id, role: this.role },
@@ -78,22 +77,37 @@ userSchema.methods.generateAccessToken = function () {
   );
 };
 
-// Generate long-lived Refresh Token (10 days)
+// Generate long-lived Refresh Token
 userSchema.methods.generateRefreshToken = function () {
-  return jwt.sign({ id: this._id }, environmentVariables.REFRESH_TOKEN_SECRET, {
-    expiresIn: environmentVariables.REFRESH_TOKEN_EXPIRES_IN || "7d",
-  });
+  return jwt.sign(
+    { id: this._id },
+    environmentVariables.REFRESH_TOKEN_SECRET,
+    { expiresIn: environmentVariables.REFRESH_TOKEN_EXPIRES_IN || "7d" },
+  );
 };
 
-// Generate Email Verification Token (random, not JWT)
+// Generate Email Verification Token — hashes before saving to DB
 userSchema.methods.generateEmailVerifyToken = function () {
-  const token = crypto.randomBytes(32).toString("hex");
+  const rawToken = crypto.randomBytes(32).toString("hex");
+  // Save hashed version in DB
   this.emailVerifyToken = crypto
     .createHash("sha256")
-    .update(token)
+    .update(rawToken)
     .digest("hex");
-  this.emailVerifyExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-  return token; // return raw token (sent in email link)
+  this.emailVerifyExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  return rawToken; // return raw → sent in email link
+};
+
+// Generate Password Reset Token — hashes before saving to DB
+userSchema.methods.generatePasswordResetToken = function () {
+  const rawToken = crypto.randomBytes(32).toString("hex");
+  // Save hashed version in DB
+  this.passwordResetToken = crypto
+    .createHash("sha256")
+    .update(rawToken)
+    .digest("hex");
+  this.passwordResetExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1hr
+  return rawToken; // return raw → sent in email link
 };
 
 export const User = mongoose.model("User", userSchema);
