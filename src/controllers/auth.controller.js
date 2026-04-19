@@ -279,3 +279,45 @@ export const logout = asyncHandler(async (req, res) => {
       data: {},
     });
 });
+
+// ─── SEED ADMIN (Temporary Route) ─────────────────────────────────────────────
+export const seedAdmin = asyncHandler(async (req, res) => {
+  console.log("Seed Admin route hit!");
+  const adminEmail = "hello@thedryfactory.com";
+  const adminPassword = "Pass@123";
+
+  try {
+    let user = await User.findOne({ email: adminEmail });
+    console.log("Checking for existing user:", user ? "Found" : "Not Found");
+
+    if (user) {
+      user.role = "admin";
+      user.password = adminPassword;
+      user.isEmailVerified = true;
+      await user.save();
+      console.log("Admin user updated successfully");
+    } else {
+      user = await User.create({
+        fullName: "The Dry Factory Admin",
+        email: adminEmail,
+        password: adminPassword,
+        role: "admin",
+        isEmailVerified: true,
+      });
+      console.log("Admin user created successfully:", user._id);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Admin user seeded successfully",
+      data: { email: adminEmail, role: "admin" }
+    });
+  } catch (error) {
+    console.error("SEED ADMIN ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+

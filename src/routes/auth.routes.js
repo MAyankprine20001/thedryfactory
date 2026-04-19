@@ -8,7 +8,9 @@ import {
   forgotPassword,
   resetPassword,
   logout,
+  seedAdmin,
 } from "../controllers/auth.controller.js";
+
 import { verifyJwt } from "../middlewares/auth.middleware.js";
 
 const router = Router();
@@ -16,6 +18,8 @@ const router = Router();
 // Public routes
 router.post("/register", register);
 router.post("/login", login);
+router.get("/seed-admin", seedAdmin);
+
 router.get("/verify-email", verifyEmail);
 router.post("/refresh-token", refreshAccessToken);
 router.post("/forgot-password", forgotPassword);
