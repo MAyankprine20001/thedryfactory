@@ -53,6 +53,14 @@ const userSchema = new Schema(
       type: Date,
       select: false,
     },
+    address: {
+      addressLine1: String,
+      addressLine2: String,
+      city: String,
+      state: String,
+      pincode: String,
+      phone: String,
+    },
   },
   { timestamps: true },
 );

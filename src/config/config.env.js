@@ -7,6 +7,8 @@ const requiredEnvVars = [
   "MONGODB_URI",
   "ACCESS_TOKEN_SECRET",
   "REFRESH_TOKEN_SECRET",
+  "RAZORPAY_KEY_ID",
+  "RAZORPAY_KEY_SECRET",
 ];
 
 // Validate required variables
@@ -29,6 +31,11 @@ export const environmentVariables = {
   RESEND_API_KEY: process.env.RESEND_API_KEY,
   RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL,
   CLIENT_URL: process.env.CLIENT_URL,
+
+  RAZORPAY: {
+    KEY_ID: process.env.RAZORPAY_KEY_ID,
+    KEY_SECRET: process.env.RAZORPAY_KEY_SECRET,
+  },
 
   CLOUDINARY: {
     CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,

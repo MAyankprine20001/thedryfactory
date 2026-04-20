@@ -22,16 +22,13 @@ const generateTokens = async (userId) => {
 };
 
 // ─── Helper: cookie options ───────────────────────────────────────────────────
-// const cookieOptions = {
-//   httpOnly: true,
-//   secure: process.env.NODE_ENV === "production",
-//   sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
-// };
+const isProduction = process.env.NODE_ENV === "production";
+
 const cookieOptions = {
   httpOnly: true,
-  secure: true,
-  sameSite: "none", // works for subdomain too
-  domain: ".thedryfactory.com", // ✅ leading dot = works for all subdomains
+  secure: isProduction,
+  sameSite: isProduction ? "none" : "lax",
+  ...(isProduction && { domain: ".thedryfactory.com" })
 };
 
 // ─── REGISTER ─────────────────────────────────────────────────────────────────
@@ -84,6 +81,7 @@ try {
           email: user.email,
           role: user.role,
           isEmailVerified: user.isEmailVerified,
+          address: user.address,
         },
       },
     });
@@ -158,6 +156,7 @@ export const login = asyncHandler(async (req, res) => {
           email: user.email,
           role: user.role,
           isEmailVerified: user.isEmailVerified,
+          address: user.address,
         },
       },
     });
@@ -174,6 +173,7 @@ export const getMe = asyncHandler(async (req, res) => {
       email: req.user.email,
       role: req.user.role,
       isEmailVerified: req.user.isEmailVerified,
+      address: req.user.address,
     },
   });
 });
@@ -187,32 +187,42 @@ export const refreshAccessToken = asyncHandler(async (req, res) => {
     throw new ApiError(401, "No refresh token provided");
   }
 
-  const decoded = jwt.verify(
-    incomingRefreshToken,
-    environmentVariables.REFRESH_TOKEN_SECRET,
-  );
+  try {
+    const decoded = jwt.verify(
+      incomingRefreshToken,
+      environmentVariables.REFRESH_TOKEN_SECRET,
+    );
 
-  const user = await User.findById(decoded.id).select("+refreshToken");
+    const user = await User.findById(decoded.id).select("+refreshToken");
 
-  if (!user || user.refreshToken !== incomingRefreshToken) {
-    throw new ApiError(401, "Invalid or expired refresh token");
+    if (!user || user.refreshToken !== incomingRefreshToken) {
+      return res
+        .status(401)
+        .clearCookie("refreshToken", cookieOptions)
+        .json({ success: false, message: "Invalid or expired refresh token" });
+    }
+
+    const { accessToken, refreshToken: newRefreshToken } = await generateTokens(
+      user._id,
+    );
+
+    return res
+      .status(200)
+      .cookie("refreshToken", newRefreshToken, {
+        ...cookieOptions,
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      })
+      .json({
+        success: true,
+        message: "Token refreshed",
+        data: { token: accessToken },
+      });
+  } catch (error) {
+    return res
+      .status(401)
+      .clearCookie("refreshToken", cookieOptions)
+      .json({ success: false, message: error?.message || "Invalid refresh token" });
   }
-
-  const { accessToken, refreshToken: newRefreshToken } = await generateTokens(
-    user._id,
-  );
-
-  return res
-    .status(200)
-    .cookie("refreshToken", newRefreshToken, {
-      ...cookieOptions,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    })
-    .json({
-      success: true,
-      message: "Token refreshed",
-      data: { token: accessToken },
-    });
 });
 
 // ─── FORGOT PASSWORD ──────────────────────────────────────────────────────────
