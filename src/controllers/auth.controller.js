@@ -59,9 +59,13 @@ export const register = asyncHandler(async (req, res) => {
   const { accessToken, refreshToken } = await generateTokens(user._id);
 
   // Send email (non-blocking)
-  sendVerificationEmail({ to: email, name: fullName, verifyUrl })
-  .then((data) => console.log("✅ Email sent:", JSON.stringify(data)))
-  .catch((err) => console.error("❌ Email failed:", err.message, JSON.stringify(err)));
+// In register controller
+try {
+  const result = await sendVerificationEmail({ to: email, name: fullName, verifyUrl });
+  console.log("✅ Email sent:", result);
+} catch (err) {
+  console.error("❌ Email error:", err.message); // will show in Vercel logs
+}
 
   return res
     .status(201)
