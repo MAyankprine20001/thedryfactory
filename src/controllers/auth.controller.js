@@ -59,9 +59,9 @@ export const register = asyncHandler(async (req, res) => {
   const { accessToken, refreshToken } = await generateTokens(user._id);
 
   // Send email (non-blocking)
-  sendVerificationEmail({ to: email, name: fullName, verifyUrl }).catch((err) =>
-    console.error("Verification email failed:", err),
-  );
+  sendVerificationEmail({ to: email, name: fullName, verifyUrl })
+  .then((data) => console.log("✅ Email sent:", JSON.stringify(data)))
+  .catch((err) => console.error("❌ Email failed:", err.message, JSON.stringify(err)));
 
   return res
     .status(201)
