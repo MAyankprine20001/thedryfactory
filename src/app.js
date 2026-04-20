@@ -27,10 +27,11 @@ const corsOptions = {
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
+  preflightContinue: false,       // ✅ handle preflight automatically
+  optionsSuccessStatus: 204,      // ✅ respond 204 to OPTIONS
 };
 
-// ✅ Fix for Express 5 — use /(.*) instead of *
-app.options("/(.*)", cors(corsOptions));
+// ✅ No app.options() needed — cors() handles it automatically
 app.use(cors(corsOptions));
 
 app.use(express.json({ limit: "16kb" }));
