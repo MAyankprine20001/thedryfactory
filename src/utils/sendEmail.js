@@ -10,19 +10,29 @@ import {
 const resend = new Resend(environmentVariables.RESEND_API_KEY);
 const FROM = `The Dry Factory <${environmentVariables.RESEND_FROM_EMAIL}>`;
 const sendEmail = async ({ to, subject, html, text }) => {
+  console.log("📧 Attempting to send email to:", to);
+  console.log("📧 From:", FROM);
+  console.log("📧 API Key exists:", !!environmentVariables.RESEND_API_KEY);
+  
   const { data, error } = await resend.emails.send({
     from: FROM,
     to,
     subject,
     html,
-    text, // ✅ plain text fallback
+    text,
     headers: { "X-Entity-Ref-ID": crypto.randomUUID() },
     tags: [{ name: "category", value: "transactional" }],
   });
-  console.log("Resend response:", JSON.stringify(data));
-  console.error("Resend error:", JSON.stringify(error));
 
-  if (error) throw new Error(error.message);
+  console.log("📧 Resend data:", JSON.stringify(data));
+  console.log("📧 Resend error:", JSON.stringify(error));
+  console.log("📧 Resend error type:", typeof error);
+  console.log("📧 Resend error keys:", error ? Object.keys(error) : "null");
+
+  if (error) {
+    throw new Error(JSON.stringify(error));
+  }
+
   return data;
 };
 
