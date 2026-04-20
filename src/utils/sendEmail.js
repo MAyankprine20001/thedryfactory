@@ -19,6 +19,8 @@ const sendEmail = async ({ to, subject, html, text }) => {
     headers: { "X-Entity-Ref-ID": crypto.randomUUID() },
     tags: [{ name: "category", value: "transactional" }],
   });
+  console.log("Resend response:", JSON.stringify(data));
+  console.error("Resend error:", JSON.stringify(error));
 
   if (error) throw new Error(error.message);
   return data;
