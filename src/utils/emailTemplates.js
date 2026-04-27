@@ -276,3 +276,54 @@ export const orderConfirmEmailTemplate = ({ name, orderId, orderUrl }) =>
       </tr>
     `,
   });
+
+// ─── 4. Admin — New User Registration Notification ───────────────────────────
+export const adminNewUserEmailTemplate = ({ name, email, joinedAt }) =>
+  baseTemplate({
+    previewText: `New customer registered: ${name} – The Dry Factory`,
+    bodyContent: `
+      <tr>
+        <td align="left" style="padding: 36px 40px 20px 40px; background-color: #000000;" class="inner-pad">
+          <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 700; color: #b8860b; letter-spacing: 2px; text-transform: uppercase;">
+            New Customer
+          </p>
+          <h2 class="hero-title" style="margin: 0 0 20px 0; font-size: 26px; font-weight: 800; color: #ffffff; font-family: Georgia, 'Times New Roman', serif; line-height: 1.2;">
+            A new user just signed up! 🎉
+          </h2>
+          <p class="body-text" style="margin: 0; font-size: 16px; line-height: 1.7; color: #aaaaaa;">
+            Someone just created an account on The Dry Factory store.
+          </p>
+        </td>
+      </tr>
+
+      <tr>
+        <td style="padding: 24px 40px 0 40px; background-color: #000000;" class="inner-pad">
+          <div style="background-color: #111111; border-radius: 12px; padding: 24px; border: 1px solid #333333; text-align: left;">
+            <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 700; color: #b8860b; letter-spacing: 1.5px; text-transform: uppercase;">
+              Customer Details
+            </p>
+            <table border="0" cellpadding="0" cellspacing="0" style="width: 100%;">
+              <tr>
+                <td style="padding: 8px 0; font-size: 14px; color: #888888; width: 100px;">Name</td>
+                <td style="padding: 8px 0; font-size: 14px; color: #ffffff; font-weight: 600;">${name}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-size: 14px; color: #888888;">Email</td>
+                <td style="padding: 8px 0; font-size: 14px; color: #ffffff; font-weight: 600;">${email}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-size: 14px; color: #888888;">Joined</td>
+                <td style="padding: 8px 0; font-size: 14px; color: #ffffff; font-weight: 600;">${joinedAt}</td>
+              </tr>
+            </table>
+          </div>
+        </td>
+      </tr>
+
+      <tr>
+        <td align="center" style="padding: 32px 40px 56px 40px; background-color: #000000;" class="inner-pad">
+          ${ctaButton({ url: '${process.env.ADMIN_URL || "http://localhost:5173"}/admin/customers', text: "View Customers" })}
+        </td>
+      </tr>
+    `,
+  });

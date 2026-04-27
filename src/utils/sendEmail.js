@@ -5,6 +5,7 @@ import {
   verificationEmailTemplate,
   passwordResetEmailTemplate,
   orderConfirmEmailTemplate,
+  adminNewUserEmailTemplate,
 } from "./emailTemplates.js";
 
 const resend = new Resend(environmentVariables.RESEND_API_KEY);
@@ -50,4 +51,13 @@ export const sendOrderConfirmEmail = ({ to, name, orderId, orderUrl }) =>
     subject: `Order Confirmed #${orderId} – The Dry Factory`,
     html: orderConfirmEmailTemplate({ name, orderId, orderUrl }),
     text: `Hi ${name},\n\nYour order #${orderId} has been confirmed!\n\nView your order:\n${orderUrl}\n\nThanks,\nThe Dry Factory Team`,
+  });
+
+// ─── 4. Admin — New Customer Notification ─────────────────────────────────
+export const sendAdminNewUserEmail = ({ name, email, joinedAt }) =>
+  sendEmail({
+    to: process.env.RESEND_FROM_EMAIL, // sends to admin email (hello@thedryfactory.com)
+    subject: `👤 New Customer: ${name} – The Dry Factory`,
+    html: adminNewUserEmailTemplate({ name, email, joinedAt }),
+    text: `New customer registered!\n\nName: ${name}\nEmail: ${email}\nJoined: ${joinedAt}`,
   });

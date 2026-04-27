@@ -9,9 +9,10 @@ import {
   resetPassword,
   logout,
   seedAdmin,
+  getAllCustomers,
 } from "../controllers/auth.controller.js";
 
-import { verifyJwt } from "../middlewares/auth.middleware.js";
+import { verifyJwt, isAdmin } from "../middlewares/auth.middleware.js";
 
 const router = Router();
 
@@ -28,5 +29,8 @@ router.post("/reset-password", resetPassword);
 // Protected routes
 router.get("/me", verifyJwt, getMe);
 router.post("/logout", verifyJwt, logout);
+
+// Admin routes
+router.get("/admin/customers", verifyJwt, isAdmin, getAllCustomers);
 
 export default router;

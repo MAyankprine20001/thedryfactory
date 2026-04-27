@@ -252,7 +252,8 @@ export const getAllOrders = asyncHandler(async (req, res) => {
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit)
-            .select("-razorpay.signature"),
+            .select("-razorpay.signature")
+            .populate("user", "email fullName"),
         Order.countDocuments(),
     ]);
 

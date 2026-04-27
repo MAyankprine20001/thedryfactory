@@ -6,6 +6,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import {
   sendVerificationEmail,
   sendPasswordResetEmail,
+  sendAdminNewUserEmail,
 } from "../utils/sendEmail.js";
 import { environmentVariables } from "../config/config.env.js";
 
@@ -63,6 +64,13 @@ try {
 } catch (err) {
   console.error("❌ Email error:", err.message); // will show in Vercel logs
 }
+
+// Non-blocking: notify admin of new registration
+sendAdminNewUserEmail({
+  name: fullName,
+  email,
+  joinedAt: new Date().toLocaleString("en-IN", { dateStyle: "long", timeStyle: "short" }),
+}).catch((err) => console.error("❌ Admin notification email error:", err.message));
 
   return res
     .status(201)
@@ -304,7 +312,7 @@ export const logout = asyncHandler(async (req, res) => {
   });
 });
 
-// ─── SEED ADMIN (Temporary Route) ─────────────────────────────────────────────
+// ─── SEED ADMIN (Temporary Route) ─────────────────────────────────────────────────
 export const seedAdmin = asyncHandler(async (req, res) => {
   console.log("Seed Admin route hit!");
   const adminEmail = "hello@thedryfactory.com";
@@ -343,4 +351,64 @@ export const seedAdmin = asyncHandler(async (req, res) => {
       message: error.message,
     });
   }
+});
+
+// ─── ADMIN: GET ALL CUSTOMERS ───────────────────────────────────────────
+export const getAllCustomers = asyncHandler(async (req, res) => {
+  const { Order } = await import("../models/Order.model.js");
+
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+  const skip = (page - 1) * limit;
+  const search = req.query.search || "";
+
+  const query = search
+    ? {
+        role: "customer",
+        $or: [
+          { fullName: { $regex: search, $options: "i" } },
+          { email: { $regex: search, $options: "i" } },
+        ],
+      }
+    : { role: "customer" };
+
+  const [customers, total] = await Promise.all([
+    User.find(query)
+      .select("fullName email isEmailVerified createdAt address")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    User.countDocuments(query),
+  ]);
+
+  // Attach order counts per customer
+  const customerIds = customers.map((c) => c._id);
+  const orderCounts = await Order.aggregate([
+    { $match: { user: { $in: customerIds } } },
+    { $group: { _id: "$user", count: { $sum: 1 }, totalSpent: { $sum: { $cond: [{ $eq: ["$status", "paid"] }, "$total", 0] } } } },
+  ]);
+
+  const orderCountMap = {};
+  orderCounts.forEach((o) => {
+    orderCountMap[o._id.toString()] = { count: o.count, totalSpent: o.totalSpent };
+  });
+
+  const data = customers.map((c) => ({
+    _id: c._id,
+    fullName: c.fullName,
+    email: c.email,
+    isEmailVerified: c.isEmailVerified,
+    createdAt: c.createdAt,
+    address: c.address,
+    orderCount: orderCountMap[c._id.toString()]?.count || 0,
+    totalSpent: orderCountMap[c._id.toString()]?.totalSpent || 0,
+  }));
+
+  return res.status(200).json({
+    success: true,
+    total,
+    page,
+    pages: Math.ceil(total / limit),
+    data,
+  });
 });
