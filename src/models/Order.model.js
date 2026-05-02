@@ -76,11 +76,34 @@ const orderSchema = new mongoose.Schema(
             signature: { type: String, default: null },  // filled after verification
         },
 
-        // Order lifecycle
+        paymentMethod: {
+            type: String,
+            enum: ["UPI", "Razorpay", "COD", "Refund", "Net Banking"],
+            default: "Razorpay",
+        },
+
+        // Payment status
         status: {
             type: String,
             enum: ["pending", "paid", "failed", "refunded", "cancelled"],
             default: "pending",
+        },
+        
+        // Order lifecycle (shipping status)
+        orderStatus: {
+            type: String,
+            enum: ["Pending", "Confirmed", "Packed", "Shipped", "Delivered", "Cancelled"],
+            default: "Pending",
+        },
+        
+        // Timeline tracking
+        timeline: {
+            orderedAt: { type: Date, default: Date.now },
+            confirmedAt: { type: Date },
+            packedAt: { type: Date },
+            shippedAt: { type: Date },
+            deliveredAt: { type: Date },
+            cancelledAt: { type: Date },
         },
 
         // Optional: notes from customer

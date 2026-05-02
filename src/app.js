@@ -12,6 +12,11 @@ import reviewRouter from "./routes/review.routes.js";
 // ─── New: Payment router ──────────────────────────────────────────────────────
 import paymentRouter from "./routes/payment.routes.js";
 
+// ─── Admin routers ────────────────────────────────────────────────────────────
+import adminRouter from "./routes/admin.routes.js";
+import couponRouter from "./routes/coupon.routes.js";
+import settingsRouter from "./routes/settings.routes.js";
+
 const app = express();
 
 // ─── CORS (existing — unchanged) ──────────────────────────────────────────────
@@ -54,6 +59,11 @@ app.use("/api/v1/reviews", reviewRouter);
 
 // ─── New: Payment routes ──────────────────────────────────────────────────────
 app.use("/api/v1/payments", paymentRouter);
+
+// ─── Admin routes ─────────────────────────────────────────────────────────────
+app.use("/api/v1/admin", adminRouter);
+app.use("/api/v1/coupons", couponRouter);
+app.use("/api/v1/settings", settingsRouter);
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 app.get("/api/v1/health", (req, res) => {

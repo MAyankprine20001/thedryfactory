@@ -7,6 +7,12 @@ const productSchema = new Schema(
       required: [true, "Product name is required"],
       trim: true,
     },
+    sku: {
+      type: String,
+      trim: true,
+      unique: true,
+      sparse: true,
+    },
     category: {
       type: String,
       required: [true, "Category is required"],
@@ -109,6 +115,15 @@ const productSchema = new Schema(
     featured: {
       type: Boolean,
       default: false,
+    },
+    status: {
+      type: String,
+      enum: ["Active", "Inactive"],
+      default: "Active",
+    },
+    salesCount: {
+      type: Number,
+      default: 0,
     },
     urgencyLine: {
       type: String,
