@@ -377,7 +377,7 @@ export const getAllCustomers = asyncHandler(async (req, res) => {
             { "address.phone": { $regex: escapeRegex(search), $options: "i" } },
           ],
         }
-      : roleFilter;
+      : { role: "customer" };
 
   const cursorDoc = decodeCursor(cursorParam);
   const lt = compoundLtFilter(cursorDoc);
