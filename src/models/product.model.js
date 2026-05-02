@@ -106,6 +106,18 @@ const productSchema = new Schema(
       type: String,
       trim: true,
     },
+    featured: {
+      type: Boolean,
+      default: false,
+    },
+    urgencyLine: {
+      type: String,
+      trim: true,
+    },
+    trustBadges: {
+      type: [String],
+      default: [],
+    },
   },
   { timestamps: true }
 );
