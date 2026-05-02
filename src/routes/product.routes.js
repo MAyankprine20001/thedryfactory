@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   getAllProducts,
   getProductById,
+  getAdminProductCatalog,
   createProduct,
   updateProduct,
   deleteProduct,
@@ -14,6 +15,7 @@ const router = Router();
 
 // Public routes
 router.route("/").get(getAllProducts);
+router.get("/admin/catalog", verifyJwt, isAdmin, getAdminProductCatalog);
 router.route("/:id").get(getProductById);
 
 // Admin routes

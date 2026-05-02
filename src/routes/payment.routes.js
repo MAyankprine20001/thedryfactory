@@ -4,6 +4,7 @@ import {
     verifyPayment,
     getMyOrders,
     getOrderById,
+    getAdminOrderStats,
     getAllOrders,
     paymentErrorHandler,
 } from "../controllers/payment.controller.js";
@@ -22,6 +23,7 @@ router.get("/my-orders", verifyJwt, getMyOrders);
 router.get("/order/:orderId", verifyJwt, getOrderById);
 
 // ─── Admin only ───────────────────────────────────────────────────────────────
+router.get("/admin/orders/stats", verifyJwt, getAdminOrderStats);
 router.get("/admin/orders", verifyJwt, getAllOrders);
 
 // ─── Error handler (must be last) ─────────────────────────────────────────────

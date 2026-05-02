@@ -1,7 +1,14 @@
 import Razorpay from "razorpay";
 import crypto from "crypto";
+import mongoose from "mongoose";
 import { Order } from "../models/Order.model.js";
 import { User } from "../models/user.model.js";
+import {
+    encodeCursor,
+    decodeCursor,
+    compoundLtFilter,
+    escapeRegex,
+} from "../utils/cursorPagination.js";
 import { environmentVariables } from "../config/config.env.js";
 
 // ─── Razorpay instance ────────────────────────────────────────────────────────
@@ -13,6 +20,43 @@ const razorpay = new Razorpay({
 // ─── Helper ───────────────────────────────────────────────────────────────────
 const asyncHandler = (fn) => (req, res, next) =>
     Promise.resolve(fn(req, res, next)).catch(next);
+
+/** Filters shared by admin order list + stats (no orderStatus tab filter). */
+function buildOrdersBaseFilter({ search, paymentStatus, paymentMethod }) {
+    const filter = {};
+
+    if (paymentStatus && paymentStatus !== "All") {
+        filter.status = paymentStatus.toLowerCase();
+    }
+
+    if (paymentMethod && paymentMethod !== "All") {
+        filter.paymentMethod = paymentMethod;
+    }
+
+    if (search) {
+        const searchConditions = [];
+        const idStr = String(search).trim();
+        if (mongoose.Types.ObjectId.isValid(idStr) && idStr.length === 24) {
+            searchConditions.push({ _id: new mongoose.Types.ObjectId(idStr) });
+        }
+        const rx = new RegExp(escapeRegex(search.trim()), "i");
+        searchConditions.push({ "shippingAddress.fullName": rx });
+        searchConditions.push({ "shippingAddress.phone": rx });
+        searchConditions.push({ "razorpay.orderId": rx });
+        filter.$and = [{ $or: searchConditions }];
+    }
+
+    return filter;
+}
+
+function buildOrdersListFilter({ search, paymentStatus, paymentMethod, orderStatus }) {
+    const base = buildOrdersBaseFilter({ search, paymentStatus, paymentMethod });
+    const tab = (orderStatus || "").trim();
+    if (tab && tab !== "All Orders") {
+        base.orderStatus = tab;
+    }
+    return base;
+}
 
 // ─── 1. Create Razorpay Order ─────────────────────────────────────────────────
 /**
@@ -233,36 +277,102 @@ export const getOrderById = asyncHandler(async (req, res) => {
     res.status(200).json({ success: true, data: order });
 });
 
-// ─── 5. Admin — Get All Orders ────────────────────────────────────────────────
+// ─── 5. Admin — Order stats (tabs / totals for current filters) ────────────────
+/**
+ * GET /api/payments/admin/orders/stats
+ */
+export const getAdminOrderStats = asyncHandler(async (req, res) => {
+    if (req.user.role !== "admin") {
+        return res.status(403).json({ success: false, message: "Admin only" });
+    }
+
+    const search = (req.query.search || "").trim();
+    const paymentStatus = (req.query.paymentStatus || "").trim();
+    const paymentMethod = (req.query.paymentMethod || "").trim();
+
+    const matchFilter = buildOrdersBaseFilter({
+        search,
+        paymentStatus,
+        paymentMethod,
+    });
+
+    const [agg, total] = await Promise.all([
+        Order.aggregate([
+            { $match: matchFilter },
+            { $group: { _id: "$orderStatus", count: { $sum: 1 } } },
+        ]),
+        Order.countDocuments(matchFilter),
+    ]);
+
+    const countsByStatus = {};
+    agg.forEach((row) => {
+        const key = row._id || "Pending";
+        countsByStatus[key] = row.count;
+    });
+
+    res.status(200).json({
+        success: true,
+        total,
+        countsByStatus,
+    });
+});
+
+// ─── 6. Admin — Cursor-paginated orders + backend search ───────────────────────
 /**
  * GET /api/payments/admin/orders
- * Admin only
+ * Query: limit, cursor, search, orderStatus, paymentStatus, paymentMethod
  */
 export const getAllOrders = asyncHandler(async (req, res) => {
     if (req.user.role !== "admin") {
         return res.status(403).json({ success: false, message: "Admin only" });
     }
 
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+    const cursorParam = req.query.cursor || null;
+    const search = (req.query.search || "").trim();
+    const paymentStatus = (req.query.paymentStatus || "").trim();
+    const paymentMethod = (req.query.paymentMethod || "").trim();
+    const orderStatus = (req.query.orderStatus || "").trim();
 
-    const [orders, total] = await Promise.all([
-        Order.find()
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(limit)
-            .select("-razorpay.signature")
-            .populate("user", "email fullName"),
-        Order.countDocuments(),
-    ]);
+    const listFilter = buildOrdersListFilter({
+        search,
+        paymentStatus,
+        paymentMethod,
+        orderStatus,
+    });
+
+    const cursorDoc = decodeCursor(cursorParam);
+    const lt = compoundLtFilter(cursorDoc);
+
+    const parts = [];
+    if (Object.keys(listFilter).length > 0) parts.push(listFilter);
+    if (Object.keys(lt).length > 0) parts.push(lt);
+
+    const mongoFilter =
+        parts.length === 0 ? {} : parts.length === 1 ? parts[0] : { $and: parts };
+
+    const orders = await Order.find(mongoFilter)
+        .sort({ createdAt: -1, _id: -1 })
+        .limit(limit + 1)
+        .select("-razorpay.signature")
+        .populate("user", "email fullName phone");
+
+    const hasNextPage = orders.length > limit;
+    const slice = hasNextPage ? orders.slice(0, limit) : orders;
+    const nextCursor =
+        hasNextPage && slice.length > 0
+            ? encodeCursor(slice[slice.length - 1])
+            : null;
+
+    const total = await Order.countDocuments(listFilter);
 
     res.status(200).json({
         success: true,
+        data: slice,
+        nextCursor,
+        hasNextPage,
+        limit,
         total,
-        page,
-        pages: Math.ceil(total / limit),
-        data: orders,
     });
 });
 

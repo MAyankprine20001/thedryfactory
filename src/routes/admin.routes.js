@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { verifyJwt, isAdmin } from "../middlewares/auth.middleware.js";
 import { 
   getDashboardStats, 
   getAnalytics, 
@@ -10,8 +11,7 @@ import {
 
 const router = Router();
 
-// In a real application, you would add an admin middleware here
-// router.use(verifyAdmin);
+router.use(verifyJwt, isAdmin);
 
 router.get("/dashboard", getDashboardStats);
 router.get("/analytics", getAnalytics);

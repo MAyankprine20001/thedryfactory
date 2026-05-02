@@ -9,6 +9,12 @@ import {
   sendAdminNewUserEmail,
 } from "../utils/sendEmail.js";
 import { environmentVariables } from "../config/config.env.js";
+import {
+  encodeCursor,
+  decodeCursor,
+  compoundLtFilter,
+  escapeRegex,
+} from "../utils/cursorPagination.js";
 
 // ─── Helper: generate both tokens & save refresh to DB ───────────────────────
 const generateTokens = async (userId) => {
@@ -353,44 +359,83 @@ export const seedAdmin = asyncHandler(async (req, res) => {
   }
 });
 
-// ─── ADMIN: GET ALL CUSTOMERS ───────────────────────────────────────────
+// ─── ADMIN: GET ALL CUSTOMERS (cursor pagination + backend search) ────────
 export const getAllCustomers = asyncHandler(async (req, res) => {
   const { Order } = await import("../models/Order.model.js");
 
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 20;
-  const skip = (page - 1) * limit;
-  const search = req.query.search || "";
+  const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+  const cursorParam = req.query.cursor || null;
+  const search = String(req.query.search || "").trim();
 
-  const query = search
-    ? {
-        role: "customer",
-        $or: [
-          { fullName: { $regex: search, $options: "i" } },
-          { email: { $regex: search, $options: "i" } },
-        ],
-      }
-    : { role: "customer" };
+  let query =
+    search.length > 0
+      ? {
+          role: "customer",
+          $or: [
+            { fullName: { $regex: escapeRegex(search), $options: "i" } },
+            { email: { $regex: escapeRegex(search), $options: "i" } },
+            { "address.phone": { $regex: escapeRegex(search), $options: "i" } },
+          ],
+        }
+      : roleFilter;
 
-  const [customers, total] = await Promise.all([
-    User.find(query)
+  const cursorDoc = decodeCursor(cursorParam);
+  const lt = compoundLtFilter(cursorDoc);
+  const parts = [query];
+  if (Object.keys(lt).length > 0) parts.push(lt);
+  const mongoFilter =
+    parts.length === 1 ? parts[0] : { $and: parts };
+
+  const [customerDocs, total, summaryExtras] = await Promise.all([
+    User.find(mongoFilter)
       .select("fullName email isEmailVerified createdAt address")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit),
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(limit + 1),
     User.countDocuments(query),
+    Promise.all([
+      Order.countDocuments(),
+      Order.aggregate([
+        { $match: { status: "paid" } },
+        { $group: { _id: null, t: { $sum: "$total" } } },
+      ]),
+      User.countDocuments({ role: "customer", isEmailVerified: true }),
+    ]),
   ]);
 
-  // Attach order counts per customer
+  const hasNextPage = customerDocs.length > limit;
+  const customers = hasNextPage ? customerDocs.slice(0, limit) : customerDocs;
+  const nextCursor =
+    hasNextPage && customers.length > 0
+      ? encodeCursor(customers[customers.length - 1])
+      : null;
+
   const customerIds = customers.map((c) => c._id);
-  const orderCounts = await Order.aggregate([
-    { $match: { user: { $in: customerIds } } },
-    { $group: { _id: "$user", count: { $sum: 1 }, totalSpent: { $sum: { $cond: [{ $eq: ["$status", "paid"] }, "$total", 0] } } } },
-  ]);
+  const orderCounts =
+    customerIds.length === 0
+      ? []
+      : await Order.aggregate([
+          { $match: { user: { $in: customerIds } } },
+          {
+            $group: {
+              _id: "$user",
+              count: { $sum: 1 },
+              totalSpent: {
+                $sum: {
+                  $cond: [{ $eq: ["$status", "paid"] }, "$total", 0],
+                },
+              },
+              lastOrderAt: { $max: "$createdAt" },
+            },
+          },
+        ]);
 
   const orderCountMap = {};
   orderCounts.forEach((o) => {
-    orderCountMap[o._id.toString()] = { count: o.count, totalSpent: o.totalSpent };
+    orderCountMap[o._id.toString()] = {
+      count: o.count,
+      totalSpent: o.totalSpent,
+      lastOrderAt: o.lastOrderAt,
+    };
   });
 
   const data = customers.map((c) => ({
@@ -402,13 +447,22 @@ export const getAllCustomers = asyncHandler(async (req, res) => {
     address: c.address,
     orderCount: orderCountMap[c._id.toString()]?.count || 0,
     totalSpent: orderCountMap[c._id.toString()]?.totalSpent || 0,
+    lastOrderAt: orderCountMap[c._id.toString()]?.lastOrderAt || null,
   }));
+
+  const [ordersTotal, revenueAgg, verifiedCustomers] = summaryExtras;
 
   return res.status(200).json({
     success: true,
     total,
-    page,
-    pages: Math.ceil(total / limit),
+    limit,
+    nextCursor,
+    hasNextPage,
+    summary: {
+      totalOrdersAllTime: ordersTotal,
+      totalRevenueAllTime: revenueAgg[0]?.t || 0,
+      verifiedCustomers,
+    },
     data,
   });
 });
