@@ -1,4 +1,4 @@
-import mongoose, { Schema } from "mongoose";
+import mongoose, { Schema, Types } from "mongoose";
 
 const productSchema = new Schema(
   {
@@ -80,6 +80,10 @@ const productSchema = new Schema(
       type: String,
       required: [true, "Image URL is required"],
     },
+    images: {
+      type: [String],
+      default: [],
+    },
     path: {
       type: String,
     },
@@ -129,10 +133,20 @@ const productSchema = new Schema(
       type: String,
       trim: true,
     },
+    description: {
+      type: String,
+      trim: true,
+    },
     trustBadges: {
       type: [String],
       default: [],
     },
+    relatedProducts: [
+      {
+        type: Types.ObjectId,
+        ref: "Product",
+      },
+    ],
   },
   { timestamps: true }
 );

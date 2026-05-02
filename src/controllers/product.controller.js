@@ -19,7 +19,10 @@ export const getAllProducts = asyncHandler(async (req, res) => {
 // @route   GET /api/v1/products/:id
 // @access  Public
 export const getProductById = asyncHandler(async (req, res) => {
-  const product = await Product.findById(req.params.id);
+  const product = await Product.findById(req.params.id).populate(
+    "relatedProducts",
+    "name image category price subtitle weight urgencyLine trustBadges stock"
+  );
   
   if (!product) {
     throw new ApiError(404, "Product not found");
