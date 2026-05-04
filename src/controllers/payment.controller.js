@@ -63,6 +63,38 @@ function buildOrdersListFilter({ search, paymentStatus, paymentMethod, orderStat
     return base;
 }
 
+function buildTransactionsFilter({
+    search,
+    paymentStatus,
+    paymentMethod,
+    dateFrom,
+    dateTo,
+}) {
+    const filter = buildOrdersBaseFilter({ search, paymentStatus, paymentMethod });
+
+    if (dateFrom || dateTo) {
+        const createdAt = {};
+        if (dateFrom) {
+            const from = new Date(dateFrom);
+            if (!Number.isNaN(from.getTime())) {
+                createdAt.$gte = from;
+            }
+        }
+        if (dateTo) {
+            const to = new Date(dateTo);
+            if (!Number.isNaN(to.getTime())) {
+                to.setHours(23, 59, 59, 999);
+                createdAt.$lte = to;
+            }
+        }
+        if (Object.keys(createdAt).length > 0) {
+            filter.createdAt = createdAt;
+        }
+    }
+
+    return filter;
+}
+
 // ─── 1. Create Razorpay Order ─────────────────────────────────────────────────
 /**
  * POST /api/payments/create-order
@@ -370,6 +402,171 @@ export const getAllOrders = asyncHandler(async (req, res) => {
 
     const hasNextPage = orders.length > limit;
     const slice = hasNextPage ? orders.slice(0, limit) : orders;
+    const nextCursor =
+        hasNextPage && slice.length > 0
+            ? encodeCursor(slice[slice.length - 1])
+            : null;
+
+    const total = await Order.countDocuments(listFilter);
+
+    res.status(200).json({
+        success: true,
+        data: slice,
+        nextCursor,
+        hasNextPage,
+        limit,
+        total,
+    });
+});
+
+// ─── 7. Admin — Transaction stats ─────────────────────────────────────────────
+/**
+ * GET /api/payments/admin/transactions/stats
+ * Query: search, paymentStatus, paymentMethod, dateFrom, dateTo
+ */
+export const getAdminTransactionStats = asyncHandler(async (req, res) => {
+    if (req.user.role !== "admin") {
+        return res.status(403).json({ success: false, message: "Admin only" });
+    }
+
+    const search = (req.query.search || "").trim();
+    const paymentStatus = (req.query.paymentStatus || "").trim();
+    const paymentMethod = (req.query.paymentMethod || "").trim();
+    const dateFrom = (req.query.dateFrom || "").trim();
+    const dateTo = (req.query.dateTo || "").trim();
+
+    const matchFilter = buildTransactionsFilter({
+        search,
+        paymentStatus,
+        paymentMethod,
+        dateFrom,
+        dateTo,
+    });
+
+    const [summary, methodRows, refunds, failed] = await Promise.all([
+        Order.aggregate([
+            { $match: matchFilter },
+            {
+                $group: {
+                    _id: null,
+                    totalRevenue: {
+                        $sum: {
+                            $cond: [{ $eq: ["$status", "paid"] }, "$total", 0],
+                        },
+                    },
+                    successfulPayments: {
+                        $sum: {
+                            $cond: [{ $eq: ["$status", "paid"] }, 1, 0],
+                        },
+                    },
+                    pendingPayments: {
+                        $sum: {
+                            $cond: [{ $eq: ["$status", "pending"] }, 1, 0],
+                        },
+                    },
+                    failedPayments: {
+                        $sum: {
+                            $cond: [{ $eq: ["$status", "failed"] }, 1, 0],
+                        },
+                    },
+                    totalRefunds: {
+                        $sum: {
+                            $cond: [{ $eq: ["$status", "refunded"] }, "$total", 0],
+                        },
+                    },
+                    totalTransactions: { $sum: 1 },
+                },
+            },
+        ]),
+        Order.aggregate([
+            { $match: matchFilter },
+            {
+                $group: {
+                    _id: { $ifNull: ["$paymentMethod", "Unknown"] },
+                    count: { $sum: 1 },
+                },
+            },
+            { $sort: { count: -1 } },
+        ]),
+        Order.find({ ...matchFilter, status: "refunded" })
+            .sort({ createdAt: -1 })
+            .limit(5)
+            .select("total shippingAddress createdAt razorpay"),
+        Order.find({ ...matchFilter, status: "failed" })
+            .sort({ createdAt: -1 })
+            .limit(5)
+            .select("total shippingAddress createdAt razorpay"),
+    ]);
+
+    const totals = summary[0] || {
+        totalRevenue: 0,
+        successfulPayments: 0,
+        pendingPayments: 0,
+        failedPayments: 0,
+        totalRefunds: 0,
+        totalTransactions: 0,
+    };
+
+    const methodTotal = methodRows.reduce((acc, row) => acc + row.count, 0) || 1;
+    const paymentMethodBreakdown = methodRows.map((row) => ({
+        name: row._id,
+        count: row.count,
+        percentage: Math.round((row.count / methodTotal) * 100),
+    }));
+
+    res.status(200).json({
+        success: true,
+        data: {
+            ...totals,
+            paymentMethodBreakdown,
+            recentRefunds: refunds,
+            recentFailedPayments: failed,
+        },
+    });
+});
+
+// ─── 8. Admin — Transactions list ─────────────────────────────────────────────
+/**
+ * GET /api/payments/admin/transactions
+ * Query: limit, cursor, search, paymentStatus, paymentMethod, dateFrom, dateTo
+ */
+export const getAdminTransactions = asyncHandler(async (req, res) => {
+    if (req.user.role !== "admin") {
+        return res.status(403).json({ success: false, message: "Admin only" });
+    }
+
+    const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+    const cursorParam = req.query.cursor || null;
+    const search = (req.query.search || "").trim();
+    const paymentStatus = (req.query.paymentStatus || "").trim();
+    const paymentMethod = (req.query.paymentMethod || "").trim();
+    const dateFrom = (req.query.dateFrom || "").trim();
+    const dateTo = (req.query.dateTo || "").trim();
+
+    const listFilter = buildTransactionsFilter({
+        search,
+        paymentStatus,
+        paymentMethod,
+        dateFrom,
+        dateTo,
+    });
+
+    const cursorDoc = decodeCursor(cursorParam);
+    const lt = compoundLtFilter(cursorDoc);
+    const parts = [];
+    if (Object.keys(listFilter).length > 0) parts.push(listFilter);
+    if (Object.keys(lt).length > 0) parts.push(lt);
+    const mongoFilter =
+        parts.length === 0 ? {} : parts.length === 1 ? parts[0] : { $and: parts };
+
+    const transactions = await Order.find(mongoFilter)
+        .sort({ createdAt: -1, _id: -1 })
+        .limit(limit + 1)
+        .select("-razorpay.signature")
+        .populate("user", "email fullName phone");
+
+    const hasNextPage = transactions.length > limit;
+    const slice = hasNextPage ? transactions.slice(0, limit) : transactions;
     const nextCursor =
         hasNextPage && slice.length > 0
             ? encodeCursor(slice[slice.length - 1])

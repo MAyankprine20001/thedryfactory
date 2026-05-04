@@ -6,6 +6,8 @@ import {
     getOrderById,
     getAdminOrderStats,
     getAllOrders,
+    getAdminTransactionStats,
+    getAdminTransactions,
     paymentErrorHandler,
 } from "../controllers/payment.controller.js";
 
@@ -25,6 +27,8 @@ router.get("/order/:orderId", verifyJwt, getOrderById);
 // ─── Admin only ───────────────────────────────────────────────────────────────
 router.get("/admin/orders/stats", verifyJwt, getAdminOrderStats);
 router.get("/admin/orders", verifyJwt, getAllOrders);
+router.get("/admin/transactions/stats", verifyJwt, getAdminTransactionStats);
+router.get("/admin/transactions", verifyJwt, getAdminTransactions);
 
 // ─── Error handler (must be last) ─────────────────────────────────────────────
 router.use(paymentErrorHandler);
