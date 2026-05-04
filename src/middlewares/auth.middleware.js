@@ -49,22 +49,50 @@ export const isAdmin = (req, res, next) => {
 // ─── 3. Optional auth — NEW (for guest checkout) ─────────────────────────────
 // Attaches req.user if a valid token is present, but never blocks the request.
 // Use on payment routes that support both logged-in users AND guests.
+//
+// Resolves user from access JWT (header or accessToken cookie), then falls back to
+// the httpOnly refreshToken cookie (same validation as /auth/refresh-token). This
+// fixes checkout when the SPA has not yet attached the in-memory access token but
+// the browser already sent the refresh cookie (e.g. race after page load).
 export const optionalAuth = async (req, res, next) => {
+  req.user = null;
   try {
-    const token =
+    const accessToken =
       req.headers["authorization"]?.replace("Bearer ", "") ||
       req.cookies?.accessToken;
 
-    if (!token) {
-      req.user = null;
-      return next();
+    if (accessToken) {
+      try {
+        const decoded = jwt.verify(
+          accessToken,
+          environmentVariables.ACCESS_TOKEN_SECRET,
+        );
+        const user = await User.findById(decoded.id);
+        if (user) {
+          req.user = user;
+          return next();
+        }
+      } catch {
+        // expired/invalid access — try refresh cookie below
+      }
     }
 
-    const decoded = jwt.verify(token, environmentVariables.ACCESS_TOKEN_SECRET);
-    const user = await User.findById(decoded.id);
-    req.user = user || null;
-  } catch (_) {
-    // Invalid or expired token → treat as guest, don't block the request
+    const refreshToken = req.cookies?.refreshToken;
+    if (refreshToken) {
+      try {
+        const decoded = jwt.verify(
+          refreshToken,
+          environmentVariables.REFRESH_TOKEN_SECRET,
+        );
+        const user = await User.findById(decoded.id).select("+refreshToken");
+        if (user?.refreshToken === refreshToken) {
+          req.user = await User.findById(decoded.id);
+        }
+      } catch {
+        // invalid refresh — stay guest
+      }
+    }
+  } catch {
     req.user = null;
   }
   next();

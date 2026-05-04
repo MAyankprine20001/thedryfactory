@@ -38,6 +38,18 @@ const settingsSchema = new Schema(
       type: Number,
       default: 0,
     },
+    /** Flat delivery fee in ₹ when cart is below freeShippingThreshold */
+    deliveryCharge: {
+      type: Number,
+      default: 50,
+      min: 0,
+    },
+    /** Cart subtotal (₹) at or above this gets ₹0 delivery. Use 0 for free delivery on all orders. */
+    freeShippingThreshold: {
+      type: Number,
+      default: 499,
+      min: 0,
+    },
     enableCOD: {
       type: Boolean,
       default: true,

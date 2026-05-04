@@ -4,6 +4,11 @@ import mongoose from "mongoose";
 import { Order } from "../models/Order.model.js";
 import { User } from "../models/user.model.js";
 import {
+    resolveShippingRates,
+    shippingFromSubtotal,
+    subtotalFromItems,
+} from "../utils/shipping.util.js";
+import {
     encodeCursor,
     decodeCursor,
     compoundLtFilter,
@@ -62,7 +67,7 @@ function buildOrdersListFilter({ search, paymentStatus, paymentMethod, orderStat
 /**
  * POST /api/payments/create-order
  *
- * Body: { items, shippingAddress, subtotal, shipping, total, notes? }
+ * Body: { items, shippingAddress, notes? } — subtotal/shipping/total are computed server-side from items + store settings.
  *
  * Flow:
  *   1. Validate request
@@ -71,7 +76,7 @@ function buildOrdersListFilter({ search, paymentStatus, paymentMethod, orderStat
  *   4. Return razorpay order details to frontend
  */
 export const createOrder = asyncHandler(async (req, res) => {
-    const { items, shippingAddress, subtotal, shipping, total, notes } = req.body;
+    const { items, shippingAddress, notes } = req.body;
 
     // Basic validation
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -82,6 +87,12 @@ export const createOrder = asyncHandler(async (req, res) => {
             .status(400)
             .json({ success: false, message: "Shipping address is required" });
     }
+
+    const calculatedSubtotal = subtotalFromItems(items);
+    const rates = await resolveShippingRates();
+    const calculatedShipping = shippingFromSubtotal(calculatedSubtotal, rates);
+    const total = calculatedSubtotal + calculatedShipping;
+
     if (!total || total <= 0) {
         return res
             .status(400)
@@ -123,8 +134,8 @@ export const createOrder = asyncHandler(async (req, res) => {
         user: req.user?.id || null, // null for guest checkout
         items,
         shippingAddress,
-        subtotal,
-        shipping,
+        subtotal: calculatedSubtotal,
+        shipping: calculatedShipping,
         total,
         notes: notes || "",
         razorpay: {
@@ -380,11 +391,16 @@ export const getAllOrders = asyncHandler(async (req, res) => {
 export const paymentErrorHandler = (err, req, res, next) => {
     console.error("Payment Error:", err);
 
-    // Razorpay API errors
+    // Razorpay API errors (invalid key/secret → "Authentication failed" — not user JWT login)
     if (err.statusCode) {
+        const desc = err.error?.description || err.message || "Razorpay error";
+        const razorpayAuthFailed =
+            typeof desc === "string" && /authentication failed/i.test(desc);
         return res.status(err.statusCode).json({
             success: false,
-            message: err.error?.description || "Razorpay error",
+            message: razorpayAuthFailed
+                ? "Razorpay rejected the server credentials (check RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in the API .env — they must be a matching pair from the same Razorpay mode, test or live)."
+                : desc,
         });
     }
 

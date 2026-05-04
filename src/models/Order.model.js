@@ -66,7 +66,7 @@ const orderSchema = new mongoose.Schema(
 
         // Pricing breakdown
         subtotal: { type: Number, required: true },   // sum of items
-        shipping: { type: Number, required: true },   // 0 or 50
+        shipping: { type: Number, required: true },   // from store settings (e.g. 0 or flat fee)
         total: { type: Number, required: true },      // subtotal + shipping (in ₹)
 
         // Razorpay fields
