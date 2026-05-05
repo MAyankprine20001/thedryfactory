@@ -168,10 +168,10 @@ export const seedProducts = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid products data. Expected an array.");
   }
 
-  // Clear existing products if you want a clean slate
-  await Product.deleteMany({});
+  const sanitized = products.map((p) => sanitizeSku({ ...p })); // ← sanitize each
 
-  const createdProducts = await Product.insertMany(products);
+  await Product.deleteMany({});
+  const createdProducts = await Product.insertMany(sanitized);
 
   return res.status(201).json({
     success: true,
