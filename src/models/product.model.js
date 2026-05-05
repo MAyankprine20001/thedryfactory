@@ -12,6 +12,7 @@ const productSchema = new Schema(
       trim: true,
       unique: true,
       sparse: true,
+      set: (v) => (v === "" || v == null ? undefined : v), 
     },
     category: {
       type: String,
