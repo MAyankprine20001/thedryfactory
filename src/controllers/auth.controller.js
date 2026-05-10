@@ -63,20 +63,20 @@ export const register = asyncHandler(async (req, res) => {
   const { accessToken, refreshToken } = await generateTokens(user._id);
 
   // Send email (non-blocking)
-// In register controller
-try {
-  const result = await sendVerificationEmail({ to: email, name: fullName, verifyUrl });
-  console.log("✅ Email sent:", result);
-} catch (err) {
-  console.error("❌ Email error:", err.message); // will show in Vercel logs
-}
+  // In register controller
+  try {
+    const result = await sendVerificationEmail({ to: email, name: fullName, verifyUrl });
+    console.log("✅ Email sent:", result);
+  } catch (err) {
+    console.error("❌ Email error:", err.message); // will show in Vercel logs
+  }
 
-// Non-blocking: notify admin of new registration
-sendAdminNewUserEmail({
-  name: fullName,
-  email,
-  joinedAt: new Date().toLocaleString("en-IN", { dateStyle: "long", timeStyle: "short" }),
-}).catch((err) => console.error("❌ Admin notification email error:", err.message));
+  // Non-blocking: notify admin of new registration
+  sendAdminNewUserEmail({
+    name: fullName,
+    email,
+    joinedAt: new Date().toLocaleString("en-IN", { dateStyle: "long", timeStyle: "short" }),
+  }).catch((err) => console.error("❌ Admin notification email error:", err.message));
 
   return res
     .status(201)
@@ -86,7 +86,7 @@ sendAdminNewUserEmail({
     })
     .json({
       success: true,
-      message: "Account created successfully. Please verify your email.",
+      message: "Account created successfully. Please verify your email and check your spam folder if needed.",
       data: {
         token: accessToken,
         user: {
@@ -370,13 +370,13 @@ export const getAllCustomers = asyncHandler(async (req, res) => {
   let query =
     search.length > 0
       ? {
-          role: "customer",
-          $or: [
-            { fullName: { $regex: escapeRegex(search), $options: "i" } },
-            { email: { $regex: escapeRegex(search), $options: "i" } },
-            { "address.phone": { $regex: escapeRegex(search), $options: "i" } },
-          ],
-        }
+        role: "customer",
+        $or: [
+          { fullName: { $regex: escapeRegex(search), $options: "i" } },
+          { email: { $regex: escapeRegex(search), $options: "i" } },
+          { "address.phone": { $regex: escapeRegex(search), $options: "i" } },
+        ],
+      }
       : { role: "customer" };
 
   const cursorDoc = decodeCursor(cursorParam);
@@ -414,20 +414,20 @@ export const getAllCustomers = asyncHandler(async (req, res) => {
     customerIds.length === 0
       ? []
       : await Order.aggregate([
-          { $match: { user: { $in: customerIds } } },
-          {
-            $group: {
-              _id: "$user",
-              count: { $sum: 1 },
-              totalSpent: {
-                $sum: {
-                  $cond: [{ $eq: ["$status", "paid"] }, "$total", 0],
-                },
+        { $match: { user: { $in: customerIds } } },
+        {
+          $group: {
+            _id: "$user",
+            count: { $sum: 1 },
+            totalSpent: {
+              $sum: {
+                $cond: [{ $eq: ["$status", "paid"] }, "$total", 0],
               },
-              lastOrderAt: { $max: "$createdAt" },
             },
+            lastOrderAt: { $max: "$createdAt" },
           },
-        ]);
+        },
+      ]);
 
   const orderCountMap = {};
   orderCounts.forEach((o) => {
