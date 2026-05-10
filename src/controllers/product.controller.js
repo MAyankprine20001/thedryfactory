@@ -41,11 +41,17 @@ export const getProductById = asyncHandler(async (req, res) => {
   });
 });
 
-// @desc    Create new product
-// @route   POST /api/v1/products
-// @access  Private/Admin
+// Helper — put at top of file
+const sanitizeSku = (data) => {
+  if ("sku" in data && (data.sku === "" || data.sku == null)) {
+    delete data.sku; // remove so sparse index skips it
+  }
+  return data;
+};
+
+// createProduct
 export const createProduct = asyncHandler(async (req, res) => {
-  const productData = req.body;
+  const productData = sanitizeSku({ ...req.body });
 
   const product = await Product.create(productData);
 
@@ -56,12 +62,10 @@ export const createProduct = asyncHandler(async (req, res) => {
   });
 });
 
-// @desc    Update product
-// @route   PUT /api/v1/products/:id
-// @access  Private/Admin
+// updateProduct
 export const updateProduct = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const productData = req.body;
+  const productData = sanitizeSku({ ...req.body });
 
   const product = await Product.findByIdAndUpdate(
     id,
@@ -164,10 +168,10 @@ export const seedProducts = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid products data. Expected an array.");
   }
 
-  // Clear existing products if you want a clean slate
-  await Product.deleteMany({});
+  const sanitized = products.map((p) => sanitizeSku({ ...p })); // ← sanitize each
 
-  const createdProducts = await Product.insertMany(products);
+  await Product.deleteMany({});
+  const createdProducts = await Product.insertMany(sanitized);
 
   return res.status(201).json({
     success: true,
