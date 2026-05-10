@@ -124,3 +124,17 @@ export const markHelpful = asyncHandler(async (req, res) => {
 
   return res.status(200).json(new ApiResponse(200, { helpful: review.helpful }, "Marked as helpful"));
 });
+
+// @desc    Delete a general review (admin only)
+// @route   DELETE /api/v1/admin/general-reviews/:id
+// @access  Private / Admin
+export const deleteGeneralReview = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const review = await GeneralReview.findByIdAndDelete(id);
+  if (!review) {
+    throw new ApiError(404, "Review not found");
+  }
+
+  return res.status(200).json(new ApiResponse(200, null, "Review deleted successfully"));
+});

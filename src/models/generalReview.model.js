@@ -57,7 +57,7 @@ const generalReviewSchema = new Schema(
       default: 0,
     },
   },
-  { timestamps: true }
+  { timestamps: true, collection: "generalreviews" }
 );
 
 export const GeneralReview = mongoose.model("GeneralReview", generalReviewSchema);
