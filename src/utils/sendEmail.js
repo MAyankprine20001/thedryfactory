@@ -6,6 +6,7 @@ import {
   passwordResetEmailTemplate,
   orderConfirmEmailTemplate,
   adminNewUserEmailTemplate,
+  adminNewReviewEmailTemplate,
 } from "./emailTemplates.js";
 
 const resend = new Resend(environmentVariables.RESEND_API_KEY);
@@ -60,4 +61,13 @@ export const sendAdminNewUserEmail = ({ name, email, joinedAt }) =>
     subject: `👤 New Customer: ${name} – The Dry Factory`,
     html: adminNewUserEmailTemplate({ name, email, joinedAt }),
     text: `New customer registered!\n\nName: ${name}\nEmail: ${email}\nJoined: ${joinedAt}`,
+  });
+
+// ─── 5. Admin — New Review Notification ───────────────────────────────────────
+export const sendAdminNewReviewEmail = ({ name, email, location, product, rating, title, comment, tags }) =>
+  sendEmail({
+    to: "hello@thedryfactory.com",
+    subject: `⭐ New ${rating}-Star Review from ${name} – The Dry Factory`,
+    html: adminNewReviewEmailTemplate({ name, email, location, product, rating, title, comment, tags }),
+    text: `New ${rating}-star review!\n\nFrom: ${name} (${email})\nLocation: ${location || "N/A"}\nProduct: ${product || "N/A"}\n\nTitle: "${title}"\n\n${comment}\n\nTags: ${tags?.join(", ") || "none"}`,
   });

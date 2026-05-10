@@ -327,3 +327,66 @@ export const adminNewUserEmailTemplate = ({ name, email, joinedAt }) =>
       </tr>
     `,
   });
+
+// ─── 5. Admin — New General Review Notification ───────────────────────────────
+export const adminNewReviewEmailTemplate = ({ name, email, location, product, rating, title, comment, tags }) =>
+  baseTemplate({
+    previewText: `New ${rating}★ review from ${name} – The Dry Factory`,
+    bodyContent: `
+      <tr>
+        <td align="left" style="padding: 36px 40px 20px 40px; background-color: #000000;" class="inner-pad">
+          <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 700; color: #b8860b; letter-spacing: 2px; text-transform: uppercase;">
+            New Customer Review
+          </p>
+          <h2 style="margin: 0 0 8px 0; font-size: 26px; font-weight: 800; color: #ffffff; font-family: Georgia, 'Times New Roman', serif; line-height: 1.2;">
+            ${"⭐".repeat(rating)} ${rating}/5 Stars
+          </h2>
+          <p style="margin: 0; font-size: 16px; line-height: 1.7; color: #aaaaaa;">
+            A customer just submitted a review on The Dry Factory.
+          </p>
+        </td>
+      </tr>
+
+      <tr>
+        <td style="padding: 0 40px 24px 40px; background-color: #000000;" class="inner-pad">
+          <div style="background-color: #111111; border-radius: 12px; padding: 24px; border: 1px solid #333333;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="padding-bottom: 14px; border-bottom: 1px solid #2a2a2a;">
+                  <p style="margin: 0 0 4px 0; font-size: 11px; font-weight: 700; color: #b8860b; letter-spacing: 1.5px; text-transform: uppercase;">Reviewer</p>
+                  <p style="margin: 0; font-size: 15px; color: #ffffff; font-weight: 600;">${name}${location ? ` · ${location}` : ""}</p>
+                  <p style="margin: 2px 0 0 0; font-size: 13px; color: #777777;">${email}</p>
+                </td>
+              </tr>
+              ${product ? `
+              <tr>
+                <td style="padding: 14px 0; border-bottom: 1px solid #2a2a2a;">
+                  <p style="margin: 0 0 4px 0; font-size: 11px; font-weight: 700; color: #b8860b; letter-spacing: 1.5px; text-transform: uppercase;">Product</p>
+                  <p style="margin: 0; font-size: 15px; color: #ffffff;">${product}</p>
+                </td>
+              </tr>` : ""}
+              <tr>
+                <td style="padding: 14px 0; border-bottom: 1px solid #2a2a2a;">
+                  <p style="margin: 0 0 4px 0; font-size: 11px; font-weight: 700; color: #b8860b; letter-spacing: 1.5px; text-transform: uppercase;">Review Title</p>
+                  <p style="margin: 0; font-size: 16px; color: #ffffff; font-weight: 700; font-family: Georgia, serif;">"${title}"</p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 14px 0 0 0;">
+                  <p style="margin: 0 0 8px 0; font-size: 11px; font-weight: 700; color: #b8860b; letter-spacing: 1.5px; text-transform: uppercase;">Review</p>
+                  <p style="margin: 0; font-size: 14px; color: #cccccc; line-height: 1.7;">${comment}</p>
+                  ${tags && tags.length ? `<p style="margin: 12px 0 0 0; font-size: 12px; color: #888888;">Tags: ${tags.join(", ")}</p>` : ""}
+                </td>
+              </tr>
+            </table>
+          </div>
+        </td>
+      </tr>
+
+      <tr>
+        <td align="center" style="padding: 8px 40px 56px 40px; background-color: #000000;" class="inner-pad">
+          ${ctaButton({ url: `${process.env.ADMIN_URL || "http://localhost:5173"}/admin`, text: "View in Admin Panel" })}
+        </td>
+      </tr>
+    `,
+  });

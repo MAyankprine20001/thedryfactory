@@ -8,6 +8,7 @@ import authRouter from "./routes/auth.routes.js";
 import productRouter from "./routes/product.routes.js";
 import uploadRouter from "./routes/upload.routes.js";
 import reviewRouter from "./routes/review.routes.js";
+import generalReviewRouter from "./routes/generalReview.routes.js";
 
 // ─── New: Payment router ──────────────────────────────────────────────────────
 import paymentRouter from "./routes/payment.routes.js";
@@ -56,6 +57,7 @@ app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/products", productRouter);
 app.use("/api/v1/upload", uploadRouter);
 app.use("/api/v1/reviews", reviewRouter);
+app.use("/api/v1/general-reviews", generalReviewRouter);
 
 // ─── New: Payment routes ──────────────────────────────────────────────────────
 app.use("/api/v1/payments", paymentRouter);
