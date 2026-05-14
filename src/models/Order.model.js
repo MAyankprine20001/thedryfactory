@@ -67,7 +67,9 @@ const orderSchema = new mongoose.Schema(
         // Pricing breakdown
         subtotal: { type: Number, required: true },   // sum of items
         shipping: { type: Number, required: true },   // from store settings (e.g. 0 or flat fee)
-        total: { type: Number, required: true },      // subtotal + shipping (in ₹)
+        discount: { type: Number, default: 0 },       // coupon / promo reduction (₹)
+        couponCode: { type: String, default: "" },
+        total: { type: Number, required: true },      // payable total after discounts (in ₹)
 
         // Razorpay fields
         razorpay: {

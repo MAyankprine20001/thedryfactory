@@ -3,6 +3,11 @@ import crypto from "crypto";
 import mongoose from "mongoose";
 import { Order } from "../models/Order.model.js";
 import { User } from "../models/user.model.js";
+import { Coupon } from "../models/coupon.model.js";
+import {
+    findAndValidateCoupon,
+    computeOrderTotalsWithCoupon,
+} from "../utils/couponOrder.util.js";
 import {
     resolveShippingRates,
     shippingFromSubtotal,
@@ -99,7 +104,7 @@ function buildTransactionsFilter({
 /**
  * POST /api/payments/create-order
  *
- * Body: { items, shippingAddress, notes? } — subtotal/shipping/total are computed server-side from items + store settings.
+ * Body: { items, shippingAddress, notes?, couponCode? } — subtotal/shipping/total are computed server-side from items + store settings; optional coupon is validated and applied on the server.
  *
  * Flow:
  *   1. Validate request
@@ -108,7 +113,7 @@ function buildTransactionsFilter({
  *   4. Return razorpay order details to frontend
  */
 export const createOrder = asyncHandler(async (req, res) => {
-    const { items, shippingAddress, notes } = req.body;
+    const { items, shippingAddress, notes, couponCode } = req.body;
 
     // Basic validation
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -123,7 +128,30 @@ export const createOrder = asyncHandler(async (req, res) => {
     const calculatedSubtotal = subtotalFromItems(items);
     const rates = await resolveShippingRates();
     const calculatedShipping = shippingFromSubtotal(calculatedSubtotal, rates);
-    const total = calculatedSubtotal + calculatedShipping;
+
+    let discount = 0;
+    let finalShipping = calculatedShipping;
+    let total = calculatedSubtotal + calculatedShipping;
+    let appliedCouponCode = "";
+
+    if (couponCode && String(couponCode).trim()) {
+        const { coupon, error } = await findAndValidateCoupon(
+            couponCode,
+            calculatedSubtotal
+        );
+        if (error) {
+            return res.status(400).json({ success: false, message: error });
+        }
+        const priced = computeOrderTotalsWithCoupon(
+            calculatedSubtotal,
+            calculatedShipping,
+            coupon
+        );
+        total = priced.total;
+        discount = priced.discount;
+        finalShipping = priced.finalShipping;
+        appliedCouponCode = coupon.code;
+    }
 
     if (!total || total <= 0) {
         return res
@@ -167,7 +195,9 @@ export const createOrder = asyncHandler(async (req, res) => {
         items,
         shippingAddress,
         subtotal: calculatedSubtotal,
-        shipping: calculatedShipping,
+        shipping: finalShipping,
+        discount,
+        couponCode: appliedCouponCode,
         total,
         notes: notes || "",
         razorpay: {
@@ -260,6 +290,13 @@ export const verifyPayment = asyncHandler(async (req, res) => {
         return res
             .status(404)
             .json({ success: false, message: "Order not found in database" });
+    }
+
+    if (updatedOrder.couponCode) {
+        await Coupon.updateOne(
+            { code: updatedOrder.couponCode },
+            { $inc: { currentUsage: 1 } }
+        );
     }
 
     res.status(200).json({

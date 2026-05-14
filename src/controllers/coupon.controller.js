@@ -1,4 +1,5 @@
 import { Coupon } from "../models/coupon.model.js";
+import { findAndValidateCoupon } from "../utils/couponOrder.util.js";
 
 // GET /api/coupons (Admin only)
 export const getAllCoupons = async (req, res) => {
@@ -47,15 +48,16 @@ export const validateCoupon = async (req, res) => {
   try {
     const { code } = req.params;
     const { orderValue } = req.query;
+    const orderVal =
+      orderValue !== undefined && orderValue !== "" && !Number.isNaN(Number(orderValue))
+        ? Number(orderValue)
+        : undefined;
 
-    const coupon = await Coupon.findOne({ code: code.toUpperCase() });
-
-    if (!coupon) return res.status(404).json({ success: false, message: "Invalid coupon code" });
-    if (coupon.status !== "Active") return res.status(400).json({ success: false, message: "Coupon is inactive or expired" });
-    if (new Date() < new Date(coupon.validFrom)) return res.status(400).json({ success: false, message: "Coupon is not valid yet" });
-    if (new Date() > new Date(coupon.validTo)) return res.status(400).json({ success: false, message: "Coupon is expired" });
-    if (coupon.usageLimit > 0 && coupon.currentUsage >= coupon.usageLimit) return res.status(400).json({ success: false, message: "Coupon usage limit reached" });
-    if (orderValue && Number(orderValue) < coupon.minOrderValue) return res.status(400).json({ success: false, message: `Minimum order value for this coupon is ₹${coupon.minOrderValue}` });
+    const { coupon, error } = await findAndValidateCoupon(code, orderVal);
+    if (error) {
+      const status = error === "Invalid coupon code" ? 404 : 400;
+      return res.status(status).json({ success: false, message: error });
+    }
 
     res.status(200).json({ success: true, data: coupon });
   } catch (error) {
