@@ -121,6 +121,10 @@ const productSchema = new Schema(
       type: Boolean,
       default: false,
     },
+    isBulk: {
+      type: Boolean,
+      default: false,
+    },
     status: {
       type: String,
       enum: ["Active", "Inactive"],
